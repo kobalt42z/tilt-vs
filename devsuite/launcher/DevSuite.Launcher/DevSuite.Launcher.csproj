@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    devsuite F5 launcher (task F, docs/visual-studio.md).
+    Startup project of the solution: F5 builds only this project and it runs
+    `tilt up` in the solution root. No project references on purpose, so VS
+    never compiles the services; Tilt builds them.
+    No NuGet packages either, so it restores offline.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>DevSuite.Launcher</AssemblyName>
+    <RootNamespace>DevSuite.Launcher</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
