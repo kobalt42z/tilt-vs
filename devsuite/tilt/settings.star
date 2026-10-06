@@ -23,6 +23,7 @@ DEFAULTS = {
     "dotnet": {},                  # task B
     "vsdbg": {},                   # task C
     "podman": {},                  # task E
+    "launcher": {},                # task F; read by the C# F5 launcher only (docs/visual-studio.md)
 }
 
 def _merge(base, over):
