@@ -1,4 +1,7 @@
 {
   "compose_files": ["docker-compose.yml"],
-  "default_build_kind": "dotnet"
+  "project_name": "tiltvs",
+  "default_build_kind": "dotnet",
+  "extend_file": "Tiltfile.extend",
+  "work_dir": ".tilt"
 }
