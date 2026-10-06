@@ -41,7 +41,8 @@ def devsuite_up():
             res = extend_custom(ctx, spec)
         else:
             res = new_result()  # "none" (deploy only) or "compose" (compose builds it)
-        if kind == "dotnet" and spec["opts"]["debugger"] and not settings["cli"]["no_debugger"]:
+        # re-read: dotnet_register may fall back to "docker" (no single csproj)
+        if spec["build_kind"] == "dotnet" and spec["opts"]["debugger"] and not settings["cli"]["no_debugger"]:
             res = merge_results(res, vsdbg_attach(ctx, spec))
         ctx["results"][name] = res
 
