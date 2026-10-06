@@ -29,7 +29,7 @@ load("./contracts.star", "new_result")
 load("./log.star", "log")
 load("./ignore.star", "dotnet_ignores", "global_ignores")
 load("./dockerfile.star", "build_copies", "rewrite", df_parse = "parse", df_app_path = "app_path")
-load("./docker.star", docker_register = "register")
+load("./docker.star", docker_register = "register", docker_build_args = "build_args")
 
 # settings["dotnet"] keys (devsuite.json / devsuite.local.json)
 DEFAULTS = {
@@ -170,15 +170,7 @@ def _quote_bat(s):
     return "\"" + s + "\""
 
 def _build_args(spec, configuration):
-    raw = spec["build"]["args"]
-    args = {}
-    if type(raw) == "dict":
-        for k, v in raw.items():
-            args[k] = "" if v == None else str(v)
-    else:
-        for item in raw:
-            k, _, v = str(item).partition("=")
-            args[k] = v
+    args = docker_build_args(spec["build"]["args"])
     if configuration:
         args["BUILD_CONFIGURATION"] = configuration
     return args
@@ -286,6 +278,7 @@ def register(ctx, spec):
             only = only,
             build_args = _build_args(spec, ""),
             live_update = lu,
+            pull = False,
         )
         log.info("dotnet", "%s: skip build layer, image = runtime stage + %s (%d COPY rewritten)" % (name, publish_rel, out["replaced"]))
         r["notes"].append("skip build layer")
@@ -318,6 +311,7 @@ def register(ctx, spec):
             dockerfile = b["dockerfile"],
             target = target,
             build_args = _build_args(spec, configuration),
+            pull = False,
         )
         log.info("dotnet", "%s: full build, BUILD_CONFIGURATION=%s, no live update (every change rebuilds the image)" % (name, configuration))
         r["notes"].append("full build")
