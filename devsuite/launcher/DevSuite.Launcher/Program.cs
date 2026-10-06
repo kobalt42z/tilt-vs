@@ -66,7 +66,7 @@ internal static class Program
         Log.Info("doctor", $"root          {settings.Root}");
         Log.Info("doctor", $"tilt          {tilt} ({FirstLine(tilt, "version")})");
         Log.Info("doctor", $"compose_cmd   {settings.ComposeCmd} ({FirstLine(settings.ComposeCmd, "version")})");
-        Log.Info("doctor", $"compose files {string.Join(", ", settings.ComposeFiles)} (project {settings.ResolveProjectName()})");
+        Log.Info("doctor", $"compose files {string.Join(", ", settings.ComposeFiles)} (project_name setting: {(settings.ProjectName == "" ? "from compose" : settings.ResolveProjectName())})");
         Log.Info("doctor", $"engine        {ToolLocator.ResolveEngine(settings.Engine)} (attach files)");
         Log.Info("doctor", $"work_dir      {settings.WorkDirFull}");
         Log.Info("doctor", $"up            port {settings.Port}, open_browser {settings.OpenBrowser}, down_on_exit {settings.DownOnExit}, stream {settings.Stream}");

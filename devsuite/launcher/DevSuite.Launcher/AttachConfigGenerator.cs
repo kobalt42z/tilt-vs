@@ -31,7 +31,7 @@ internal sealed class AttachConfigGenerator(DevSuiteSettings settings)
         foreach (var stale in Directory.GetFiles(outDir, "attach-*.json"))
             File.Delete(stale);
 
-        var project = settings.ResolveProjectName();
+        var project = settings.ResolveProjectName(model?["name"]?.GetValue<string>());
         var engine = ToolLocator.ResolveEngine(settings.Engine);
         var written = new List<ServiceAttach>();
         if (model?["services"] is not JsonObject services)
@@ -156,8 +156,7 @@ internal sealed class AttachConfigGenerator(DevSuiteSettings settings)
         return Path.GetDirectoryName(Path.GetFullPath(dockerfile, context));
     }
 
-    private string ComposeDir =>
-        Path.GetDirectoryName(Path.GetFullPath(settings.ComposeFiles.FirstOrDefault() ?? "docker-compose.yml", settings.Root))!;
+    private string ComposeDir => settings.ComposeDir;
 
     private static string EnsureTrailingSeparator(string path) =>
         path.EndsWith(Path.DirectorySeparatorChar) ? path : path + Path.DirectorySeparatorChar;
@@ -180,12 +179,18 @@ internal sealed class AttachConfigGenerator(DevSuiteSettings settings)
         };
         foreach (var p in parts.Skip(1))
             psi.ArgumentList.Add(p);
-        psi.ArgumentList.Add("-p");
-        psi.ArgumentList.Add(settings.ResolveProjectName());
+        // Same invocation as compose.star _config_argv.
         foreach (var f in settings.ComposeFiles)
         {
             psi.ArgumentList.Add("-f");
             psi.ArgumentList.Add(Path.GetFullPath(f, settings.Root));
+        }
+        psi.ArgumentList.Add("--project-directory");
+        psi.ArgumentList.Add(ComposeDir);
+        if (!string.IsNullOrEmpty(settings.ProjectName))
+        {
+            psi.ArgumentList.Add("-p");
+            psi.ArgumentList.Add(settings.ResolveProjectName());
         }
         psi.ArgumentList.Add("config");
         psi.ArgumentList.Add("--format");

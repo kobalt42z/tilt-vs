@@ -95,7 +95,7 @@ Auto-attach on F5 is out of scope (PLAN §11 question 2: it needs a VS extension
 
 1. Wait for the service to be green in the Tilt UI.
 2. *Debug > Attach to Process* (Ctrl+Alt+P), *Connection type*: **Docker (Linux Container)**,
-   *Connection target*: the container (e.g. `tilt-vs-orders-api-1`), pick the `dotnet` process, code type **Managed (.NET Core for Unix)**.
+   *Connection target*: the container (e.g. `tiltvs-orders-api-1`), pick the `dotnet` process, code type **Managed (.NET Core for Unix)**.
 3. Next time: *Debug > Reattach to Process* (Shift+Alt+P).
 
 VS finds vsdbg already mounted by devsuite (task C, `docs/vsdbg.md`), so nothing is downloaded.
@@ -115,14 +115,14 @@ with the debugger enabled:
 ```jsonc
 // .tilt/vs/attach-orders-api.json
 {
-  "name": "Attach orders-api (vsdbg in container tilt-vs-orders-api-1)",
+  "name": "Attach orders-api (vsdbg in container tiltvs-orders-api-1)",
   "type": "coreclr",
   "request": "attach",
   "processName": "dotnet",
   "$adapter": "C:\\Program Files\\RedHat\\Podman\\podman.exe",
-  "$adapterArgs": "exec -i tilt-vs-orders-api-1 /remote_debugger/vsdbg --interpreter=vscode",
+  "$adapterArgs": "exec -i tiltvs-orders-api-1 /remote_debugger/vsdbg --interpreter=vscode",
   "justMyCode": true,
-  "sourceFileMap": { "/src/": "C:\\src\\tilt-vs\\samples\\Orders.Api\\" }
+  "sourceFileMap": { "/src/": "C:\\src\\tilt-vs\\samples\\" }
 }
 ```
 
@@ -138,7 +138,7 @@ Tip: bind it once with *Tools > External Tools* or a Command Window alias
 Which services get a file: compose services with a `build:` and `tilt-build: dotnet`, or no `tilt-build`
 label with `default_build_kind` = `dotnet` and exactly one `*.csproj` next to the Dockerfile (or `tilt-project`
 set), the same rule as `dotnet.star`. `tilt-debugger: "false"` skips the service. The container name is
-`container_name` or `<project>-<service>-1` (compose v2 naming; project name is the same as the Tiltfile uses).
+`container_name` or `<project>-<service>-1` (compose v2 naming; the project name follows compose.star: `project_name` setting, else the compose `name:`, else the compose folder).
 The service list comes from `<compose_cmd> config --format json`; if that fails the launcher warns and continues.
 
 `sourceFileMap` maps `/src/` (the MS Dockerfile template's build dir) to the build context, for images built
@@ -152,8 +152,9 @@ Verified on the Linux test bench (Docker 29, Tilt 0.35 from source, .NET SDK 10.
 * `dotnet run -- ci --down` on the sample: tilt ci green, then tilt down, exit code 0.
 * `up --down orders-api db`: devsuite args reach the Tiltfile; SIGTERM stops tilt cleanly and the watcher runs
   tilt down; SIGKILL of the launcher (what *Stop Debugging* does): watcher stops the orphaned tilt and runs tilt down.
-* `attach-config` writes the file for the sample's `orders-api` and skips the `custom` and deploy-only services;
-  the container name matches the one compose creates (`tilt-vs-orders-api-1`).
+* `dotnet run -- ci` on the merged sample (tasks A + G: two .NET APIs, custom web, db): green; `dotnet build TiltVs.slnx` passes.
+* `attach-config` writes files for `orders-api` and `catalog-api` and skips the `custom` and deploy-only services;
+  the container name matches the one compose creates (`tiltvs-orders-api-1`).
 
 Not verifiable here (needs your Windows machine):
 

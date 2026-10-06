@@ -101,17 +101,23 @@ internal sealed class DevSuiteSettings
         }
     }
 
-    /// <summary>Compose project name, same rule as compose.star _project_name.</summary>
-    public string ResolveProjectName()
+    /// <summary>
+    /// Compose project name, same rule as compose.star: project_name setting,
+    /// else the normalized model's name (top-level `name:` or the compose
+    /// dir), lowercased with only [a-z0-9_-] kept.
+    /// </summary>
+    public string ResolveProjectName(string? modelName = null)
     {
         var name = ProjectName;
         if (string.IsNullOrEmpty(name))
-        {
-            var first = Path.GetFullPath(Path.Combine(Root, ComposeFiles.FirstOrDefault() ?? "docker-compose.yml"));
-            name = Path.GetFileName(Path.GetDirectoryName(first)) ?? "";
-        }
+            name = modelName;
+        if (string.IsNullOrEmpty(name))
+            name = Path.GetFileName(ComposeDir) ?? "";
         return new string(name.ToLowerInvariant()
-            .Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-')
+            .Where(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')
             .ToArray());
     }
+
+    public string ComposeDir =>
+        Path.GetDirectoryName(Path.GetFullPath(ComposeFiles.FirstOrDefault() ?? "docker-compose.yml", Root))!;
 }
