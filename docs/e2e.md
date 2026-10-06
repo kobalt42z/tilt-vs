@@ -87,11 +87,11 @@ the last run (see Results below). Owner = the module the scenario validates.
 
 ## Results
 
-Linux test bench (Docker 29.8, compose v5.6, Tilt 0.35 from source), integration skeleton.
+Linux test bench (Docker 29.8, compose v5.6, Tilt 0.35 from source), integration branch.
 
 | Date | Branch state | Result |
 |---|---|---|
-| 2026-10-06 | skeleton modules (A-F not merged yet) | S1 pass (all 5 resources green, smoke passed), S2 pass (only the expected "dotnet pipeline not implemented" warnings), S12 pass (`tilt up`: marker edit live-synced with `Will copy 1 file(s)`, no image rebuild), S20 pass for the sample projects (`dotnet build` in `sdk:10.0`; with a placeholder launcher project the whole `.slnx` builds). S3 currently `Release` everywhere: the skeleton builds both Dockerfiles as-is without `BUILD_CONFIGURATION`. Other scenarios pending their modules. |
+| 2026-10-06 | integration with task A merged; B-F still skeleton | S1 pass (all 5 resources green, smoke passed), S2 pass (only the expected "dotnet pipeline not implemented" warnings), S12 pass (`tilt up`: marker edit live-synced with `Will copy 1 file(s)`, no image rebuild), S20 pass for the sample projects (`dotnet build` in `sdk:10.0`; with a placeholder launcher project the whole `.slnx` builds). S3 currently `Release` everywhere: the skeleton builds both Dockerfiles as-is without `BUILD_CONFIGURATION`. Other scenarios pending their modules. |
 
 Not verifiable here: W1-W5 (Windows, VS 2026, Podman Hyper-V).
 
