@@ -284,7 +284,8 @@ def _load_yaml_model(settings, files, compose_dir):
                 order.append(svc_name)
     profiles = _active_profiles()
     active = []
-    for svc_name in order:
+    # read_yaml returns Go maps: key order is random, so sort like the CLI path.
+    for svc_name in sorted(order):
         p = services[svc_name].get("profiles") or []
         if p and not [x for x in p if x in profiles or x == "*"]:
             log.debug("compose", "service '%s' skipped: profiles %s not active" % (svc_name, p))
