@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "Tilt Up": {
+      "commandName": "Project",
+      "commandLineArgs": "up"
+    },
+    "Tilt Up (skip build layer)": {
+      "commandName": "Project",
+      "commandLineArgs": "up --skip-build-layer"
+    },
+    "Tilt Up (no debugger)": {
+      "commandName": "Project",
+      "commandLineArgs": "up --no-debugger"
+    },
+    "Tilt CI": {
+      "commandName": "Project",
+      "commandLineArgs": "ci --down"
+    },
+    "Tilt Down": {
+      "commandName": "Project",
+      "commandLineArgs": "down"
+    },
+    "Generate attach configs": {
+      "commandName": "Project",
+      "commandLineArgs": "attach-config"
+    },
+    "Doctor": {
+      "commandName": "Project",
+      "commandLineArgs": "doctor"
+    }
+  }
+}

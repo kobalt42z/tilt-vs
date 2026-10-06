@@ -1,0 +1,7 @@
+services:
+  api:
+    build: ../_ctx
+    labels:
+      tilt-buidl: docker
+      tilt-whatever: x
+      not-tilt: y

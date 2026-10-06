@@ -1,0 +1,11 @@
+# vsdbg binaries live in Git LFS (PLAN.md section 11, question 1).
+# Run `git lfs install` once per clone before adding or checking out the drop.
+drop/** filter=lfs diff=lfs merge=lfs -text
+# Small text files stay in plain git so they diff and review normally.
+drop/manifest.json -filter -diff -merge text eol=lf
+drop/*/*.json -filter -diff -merge text eol=lf
+drop/*/*/success_rid.txt -filter -diff -merge text eol=lf
+drop/*/*/success_version.txt -filter -diff -merge text eol=lf
+
+# Scripts must keep LF so they run inside Linux containers and WSL from a Windows checkout.
+*.sh text eol=lf

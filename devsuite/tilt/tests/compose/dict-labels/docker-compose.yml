@@ -1,0 +1,22 @@
+services:
+  api:
+    build: { context: ../_ctx }
+    depends_on: [db]
+    labels:
+      tilt-build: Dotnet
+      tilt-skip-build-layer: true
+      tilt-configuration: Release
+      tilt-watch: "../shared, ../lib"
+      tilt-group: "backend, apis"
+      tilt-trigger: manual
+      tilt-auto-start: "false"
+      tilt-links: "http://localhost:5080/swagger, http://localhost:5080/health"
+      tilt-resource-deps: "migrate"
+      tilt-debugger-rid: linux-musl-x64
+      com.example.other: kept
+  migrate:
+    image: alpine:3.20
+    labels:
+      tilt-trigger: manual
+  db:
+    image: postgres:16-alpine

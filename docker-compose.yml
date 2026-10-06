@@ -1,0 +1,60 @@
+# Sample stack for tilt-vs (task G). Every devsuite build kind is represented:
+#   orders-api   dotnet, tilt-skip-build-layer=true  (runtime stage only, app from local publish)
+#   catalog-api  dotnet, full Dockerfile build       (SDK stage, BUILD_CONFIGURATION=Debug)
+#   web          custom, built by Tiltfile.extend    (nginx static site, live sync)
+#   db           no build section -> deploy only     (postgres)
+# The .NET build context is samples/ (VS "solution dir" convention) so the
+# Dockerfiles can COPY the shared project and Directory.Build.props.
+name: tiltvs
+
+services:
+  orders-api:
+    build:
+      context: ./samples
+      dockerfile: Orders.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+      tilt-skip-build-layer: "true"
+      tilt-group: backend
+      tilt-links: http://localhost:5080/orders
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      CATALOG_URL: http://catalog-api:8080
+      DB_HOST: db
+      DB_PORT: "5432"
+    ports: ["5080:8080"]
+    depends_on: [catalog-api, db]
+
+  catalog-api:
+    build:
+      context: ./samples
+      dockerfile: Catalog.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+      tilt-skip-build-layer: "false"
+      tilt-group: backend
+      tilt-links: http://localhost:5081/products
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+    ports: ["5081:8080"]
+
+  web:
+    build: ./samples/web
+    labels:
+      tilt-build: custom
+      tilt-group: frontend
+    ports: ["5082:80"]
+
+  db:
+    image: postgres:16-alpine
+    labels:
+      tilt-group: infra
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: tiltvs
+    ports: ["55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tiltvs"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

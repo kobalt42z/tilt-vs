@@ -1,0 +1,24 @@
+exit 0
+model .source == "cli"
+model .services.api.build_kind == "dotnet" and .services.api.kind_source == "label"
+model .services.api.opts.skip_build_layer == true
+model .services.api.opts.configuration == "Release"
+model .services.api.opts.watch == ["../shared", "../lib"]
+model .services.api.opts.debugger_rid == "linux-musl-x64"
+model .services.api.opts.live_update == true and .services.api.opts.debugger == true
+model .services.api.labels["com.example.other"] == "kept"
+model .services.api.image_ref == "dict-labels-api"
+model .services.api.build.context | endswith("/tests/compose/_ctx")
+model .services.api.build.dockerfile | endswith("/tests/compose/_ctx/Dockerfile")
+model .override.services.api.image == "dict-labels-api"
+model .override.services | has("db") | not
+# trigger manual + auto-start false = TriggerModeManual (2); deps = label + depends_on
+result .Manifests[] | select(.Name=="api") | .TriggerMode == 2
+result .Manifests[] | select(.Name=="api") | .Labels == {"apis":"apis","backend":"backend"}
+result .Manifests[] | select(.Name=="api") | .ResourceDependencies == ["db","migrate"]
+result .Manifests[] | select(.Name=="api") | [.DeployTarget.Links[].URL | .Host + .Path] == ["localhost:5080/swagger","localhost:5080/health"]
+# manual trigger, auto-start default = TriggerModeManualWithAutoInit (1)
+result .Manifests[] | select(.Name=="migrate") | .TriggerMode == 1 and .Labels == {"none":"none"}
+result .Manifests[] | select(.Name=="db") | .TriggerMode == 0
+log api: tilt-build=dotnet (label)
+nolog unknown label

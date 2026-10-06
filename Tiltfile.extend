@@ -1,0 +1,29 @@
+# Sample Tiltfile.extend: project-specific Tilt instructions merged into the
+# devsuite Tiltfile after every devsuite resource is registered.
+# Both supported styles are shown (docs/plan/PLAN.md section 4):
+#   1. extend(ctx): gets the parsed compose model, so builds never hard-code
+#      image names (ctx["project"]["services"][name]["image_ref"]).
+#   2. plain top-level Tilt calls, exactly as if written in the Tiltfile.
+
+def extend(ctx):
+    # web has tilt-build: custom -> devsuite registers nothing, we build it here.
+    web = ctx["project"]["services"]["web"]
+    www = os.path.join(web["build"]["context"], "www")
+    docker_build(
+        web["image_ref"],
+        web["build"]["context"],
+        dockerfile = web["build"]["dockerfile"],
+        pull = False,  # air-gapped: base images are preloaded
+        live_update = [sync(www, "/usr/share/nginx/html")],  # nginx serves new files as-is
+    )
+
+# Top-level style: an end-to-end smoke check that runs once the stack is up.
+# In `tilt ci` it gates success; in `tilt up` click it to re-run.
+local_resource(
+    "e2e-smoke",
+    cmd = "sh samples/e2e/smoke.sh",
+    cmd_bat = "powershell -NoProfile -ExecutionPolicy Bypass -File samples\\e2e\\smoke.ps1",
+    deps = ["samples/e2e"],
+    resource_deps = ["orders-api", "catalog-api", "web", "db"],
+    labels = ["e2e"],
+)

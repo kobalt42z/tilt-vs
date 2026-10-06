@@ -1,0 +1,4 @@
+# Task B fixture: `tilt ci` here exercises the .NET pipeline (see docs/dotnet.md).
+load("../../main.star", "devsuite_up")
+
+devsuite_up()

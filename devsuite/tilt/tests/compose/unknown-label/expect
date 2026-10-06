@@ -1,0 +1,5 @@
+exit 0
+log service 'api': unknown label 'tilt-buidl' ignored (did you mean 'tilt-build'?)
+log service 'api': unknown label 'tilt-whatever' ignored
+nolog 'not-tilt'
+model .services.api.build_kind == "dotnet"

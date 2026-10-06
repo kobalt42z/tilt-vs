@@ -1,0 +1,8 @@
+services:
+  api:
+    build: ../_ctx
+  cache:
+    image: redis:7
+    labels: { tilt-build: dotnet }
+  remote:
+    build: https://github.com/example/repo.git#main

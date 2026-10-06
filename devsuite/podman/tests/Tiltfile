@@ -1,0 +1,132 @@
+# Path translation + engine detection fixtures for devsuite/tilt/podman.star.
+# Pure Starlark, host independent (Windows paths are plain strings here).
+# Run:  devsuite/podman/tests/run.sh   (or: tilt alpha tiltfile-result -f devsuite/podman/tests/Tiltfile)
+load("../../tilt/podman.star", "translate_source", "parse_volume", "translate_volumes", "translate", "parse_engine")
+
+_failures = []
+_count = [0]
+
+def eq(name, got, want):
+    _count[0] += 1
+    if got != want:
+        _failures.append("%s\n    got : %s\n    want: %s" % (name, got, want))
+
+DEFAULT_MAP = {"X:\\": "/mnt/x/"}
+SHOP = "C:\\src\\shop"
+
+def src(s, base = SHOP, pmap = DEFAULT_MAP, home = ""):
+    t = translate_source(s, base, pmap, home)
+    return t["source"] if t["mapped"] else "UNMAPPED " + t["source"]
+
+# --- translate_source: default X:\ -> /mnt/x/ ------------------------------
+eq("relative ./ under drive", src("./data"), "/mnt/c/src/shop/data")
+eq("relative bare dir", src("data/sub"), "/mnt/c/src/shop/data/sub")
+eq("relative ..\\ backslash", src("..\\shared"), "/mnt/c/src/shared")
+eq("absolute backslash", src("C:\\src\\shop\\data"), "/mnt/c/src/shop/data")
+eq("absolute forward slash, lower drive, dot-dot", src("c:/Src/Shop/../x/./y"), "/mnt/c/Src/x/y")
+eq("other drive", src("D:\\work\\api"), "/mnt/d/work/api")
+eq("drive root", src("E:\\"), "/mnt/e")
+eq("trailing separator", src("C:\\src\\shop\\"), "/mnt/c/src/shop")
+eq("case preserved in rest", src("C:\\Users\\Dev\\My Files"), "/mnt/c/Users/Dev/My Files")
+eq("home tilde", src("~/.nuget/packages", home = "C:\\Users\\dev"), "/mnt/c/Users/dev/.nuget/packages")
+eq("unix absolute untouched", src("/var/run/docker.sock"), "UNMAPPED /var/run/docker.sock")
+eq("UNC unmapped by default", src("\\\\srv\\share\\x"), "UNMAPPED \\\\srv\\share\\x")
+
+# --- explicit entries -------------------------------------------------------
+M = dict(DEFAULT_MAP)
+M.update({"D:\\Work\\": "/mnt/work", "\\\\srv\\share": "/mnt/share/", "C:\\src\\shop\\": "/src/"})
+eq("explicit beats wildcard, case-insensitive key", src("d:\\work\\api", pmap = M), "/mnt/work/api")
+eq("explicit exact folder", src("D:\\Work", pmap = M), "/mnt/work")
+eq("prefix must end on a separator", src("D:\\Workshop\\a", pmap = M), "/mnt/d/Workshop/a")
+eq("longest explicit wins", src("./api", pmap = M), "/src/api")
+eq("wildcard still merged in", src("C:\\other", pmap = M), "/mnt/c/other")
+eq("UNC entry", src("//srv/share/x/y", pmap = M), "/mnt/share/x/y")
+eq("forward-slash key", src("F:\\a\\b", pmap = {"F:/a": "/fa/"}), "/fa/b")
+eq("wildcard dropped", src("C:\\x", pmap = {"X:\\": ""}), "UNMAPPED C:\\x")
+eq("custom wildcard value", src("C:\\x", pmap = {"X:\\": "/host/x/drive"}), "/host/c/drive/x")
+eq("posix host map", src("./data", base = "/home/me/src/app", pmap = {"/home/me/src": "/mnt/src/"}), "/mnt/src/app/data")
+eq("posix no entry", src("./data", base = "/home/me/app"), "UNMAPPED /home/me/app/data")
+
+# --- parse_volume -----------------------------------------------------------
+eq("short windows bind ro", parse_volume("C:\\src\\data:/data:ro"),
+   {"type": "bind", "source": "C:\\src\\data", "target": "/data", "read_only": True})
+eq("short relative bind with selinux", parse_volume("./x:/x:ro,z"),
+   {"type": "bind", "source": "./x", "target": "/x", "read_only": True, "bind": {"selinux": "z"}})
+eq("short named volume", parse_volume("pgdata:/var/lib/postgresql/data"),
+   {"type": "volume", "source": "pgdata", "target": "/var/lib/postgresql/data"})
+eq("short anonymous volume", parse_volume("/cache"), {"type": "volume", "target": "/cache"})
+eq("long dict passes through", parse_volume({"type": "volume", "source": "pg", "target": "/d"}),
+   {"type": "volume", "source": "pg", "target": "/d"})
+eq("long dict without type", parse_volume({"source": "./a", "target": "/a"}),
+   {"type": "bind", "source": "./a", "target": "/a"})
+
+# --- translate_volumes: original + devsuite, merged by target ---------------
+vols, changes = translate_volumes(
+    "api",
+    ["./appsettings:/app/config:ro", "pgdata:/data", "C:\\logs:/logs", "/var/run/docker.sock:/var/run/docker.sock",
+     {"type": "bind", "source": "\\\\nas\\x", "target": "/nas"}],
+    [{"type": "bind", "source": "C:\\src\\shop\\.tilt\\vsdbg\\linux-x64", "target": "/remote_debugger", "read_only": True},
+     {"type": "bind", "source": "C:\\Users\\dev\\logs2", "target": "/logs"},
+     {"type": "volume", "source": "cache", "target": "/cache"}],
+    SHOP, DEFAULT_MAP)
+eq("merged volumes", vols, [
+    {"type": "bind", "source": "/mnt/c/src/shop/appsettings", "target": "/app/config", "read_only": True},
+    {"type": "bind", "source": "/mnt/c/Users/dev/logs2", "target": "/logs"},
+    {"type": "bind", "source": "/mnt/c/src/shop/.tilt/vsdbg/linux-x64", "target": "/remote_debugger", "read_only": True},
+    {"type": "volume", "source": "cache", "target": "/cache"},
+])
+eq("changes", changes, [
+    "C:\\src\\shop\\appsettings -> /mnt/c/src/shop/appsettings",
+    "C:\\logs -> /mnt/c/logs",
+    "!\\\\nas\\x",
+    "C:\\src\\shop\\.tilt\\vsdbg\\linux-x64 -> /mnt/c/src/shop/.tilt/vsdbg/linux-x64",
+    "C:\\Users\\dev\\logs2 -> /mnt/c/Users/dev/logs2",
+])
+
+# --- translate(ctx, override) ------------------------------------------------
+def fake_ctx(mode):
+    def spec(name, raw):
+        return {"name": name, "raw": raw, "compose_dir": SHOP}
+    return {
+        "settings": {"compose_cmd": "docker compose", "podman": {"translate": mode}},
+        "project": {"order": ["api", "db", "web"], "services": {
+            "api": spec("api", {"volumes": ["./src:/src:ro"]}),
+            "db": spec("db", {"volumes": ["pgdata:/var/lib/postgresql/data"]}),
+            "web": spec("web", {}),
+        }},
+        "results": {"api": {"notes": []}, "db": {"notes": []}, "web": {"notes": []}},
+    }
+
+def fake_override():
+    return {"services": {
+        "api": {"image": "shop-api", "volumes": [{"type": "bind", "source": "C:\\vsdbg", "target": "/remote_debugger", "read_only": True}]},
+        "web": {"image": "shop-web"},
+    }}
+
+ctx = fake_ctx(True)
+out = translate(ctx, fake_override())
+eq("translate on: override", out, {"services": {
+    "api": {"image": "shop-api", "volumes": [
+        {"type": "bind", "source": "/mnt/c/src/shop/src", "target": "/src", "read_only": True},
+        {"type": "bind", "source": "/mnt/c/vsdbg", "target": "/remote_debugger", "read_only": True},
+    ]},
+    "web": {"image": "shop-web"},
+}})
+eq("translate on: summary note", ctx["results"]["api"]["notes"], ["2 bind path(s) translated"])
+eq("translate on: path_map default applied", ctx["settings"]["podman"]["path_map"], DEFAULT_MAP)
+eq("translate off: override untouched", translate(fake_ctx(False), fake_override()), fake_override())
+eq("translate auto without preflight: off", translate(fake_ctx("auto"), fake_override()), fake_override())
+
+# --- parse_engine -------------------------------------------------------------
+DOCKER = '{"Platform":{"Name":"Docker Engine - Community"},"Version":"29.8.2","ApiVersion":"1.56","Os":"linux","Arch":"amd64","Components":[{"Name":"Engine","Version":"29.8.2"}]}'
+PODMAN = '{"Platform":{"Name":"linux/amd64/fedora-41"},"Components":[{"Name":"Podman Engine","Version":"5.4.0"},{"Name":"Conmon","Version":"2.1.12"}],"Version":"5.4.0","ApiVersion":"1.41","MinAPIVersion":"1.24","Os":"linux","Arch":"amd64"}'
+PODMAN_CLI = '{"Client":{"APIVersion":"5.4.0","Version":"5.4.0","OsArch":"windows/amd64"},"Server":{"APIVersion":"5.4.0","Version":"5.4.0","OsArch":"linux/amd64"}}'
+eq("engine docker", parse_engine(DOCKER)["name"], "docker")
+eq("engine podman via compat API", parse_engine("WARNING: something\n" + PODMAN),
+   {"name": "podman", "version": "5.4.0", "api": "1.41", "os": "linux", "arch": "amd64", "platform": "linux/amd64/fedora-41"})
+eq("engine podman CLI json shape", parse_engine(PODMAN_CLI)["version"], "5.4.0")
+eq("engine garbage", parse_engine("Cannot connect to the Docker daemon"), None)
+
+if _failures:
+    fail("podman fixtures: %d of %d failed:\n  %s" % (len(_failures), _count[0], "\n  ".join(_failures)))
+print("[devsuite] podman fixtures: %d passed" % _count[0])
