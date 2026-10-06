@@ -1,0 +1,5 @@
+services:
+  api:
+    environment: [ "B=from-override", "C=${FROM_SHELL}" ]
+    labels: [ "tilt-group=g" ]
+    volumes: [ "./other:/data" ]

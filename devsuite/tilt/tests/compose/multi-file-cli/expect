@@ -1,0 +1,11 @@
+exit 0
+model .source == "cli"
+model .order == ["api", "db", "extra"]
+model .services.api.image_ref == "registry.local/api:1.2.3"
+model .services.api.build.args == {"BASE": "9.0"}
+model .services.api.opts.group == ["overridden"] and .services.api.opts.trigger == "manual"
+model .services.api.build_kind == "docker"
+model .services.extra.opts.auto_start == false
+model .override.services.api.image == "registry.local/api:1.2.3"
+result .Manifests[] | select(.Name=="api") | .Labels == {"overridden":"overridden"} and .TriggerMode == 1
+result .Manifests[] | select(.Name=="extra") | .TriggerMode == 3

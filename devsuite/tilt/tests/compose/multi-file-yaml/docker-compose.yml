@@ -1,0 +1,22 @@
+services:
+  api:
+    build:
+      context: ../_ctx
+      args: { BASE: "${BASE_TAG:-9.0}" }
+    image: "registry.local/api:${API_TAG}"
+    environment:
+      A: from-base
+      B: from-base
+    labels:
+      tilt-build: docker
+      tilt-group: base
+    volumes:
+      - ./data:/data
+      - logs:/logs
+  db:
+    image: "postgres:${PG_VERSION:-16}-alpine"
+    environment:
+      LITERAL: "$$HOME"
+      COMBO: "${UNSET_VAR:-${PG_VERSION}}-x"
+volumes:
+  logs: {}
