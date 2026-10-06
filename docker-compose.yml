@@ -1,0 +1,17 @@
+# Skeleton sample stack (task G replaces it with the full sample).
+services:
+  orders-api:
+    build:
+      context: ./samples/Orders.Api
+    labels:
+      tilt-build: dotnet
+      tilt-skip-build-layer: "true"
+    ports: ["5080:8080"]
+  web:
+    build: ./samples/web
+    labels:
+      tilt-build: custom
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev

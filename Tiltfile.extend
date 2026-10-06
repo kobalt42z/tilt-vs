@@ -1,0 +1,5 @@
+# Sample Tiltfile.extend: plain Tilt instructions merged into the main Tiltfile.
+# Define extend(ctx) to get the parsed compose model (ctx["project"]["services"]).
+def extend(ctx):
+    web = ctx["project"]["services"]["web"]
+    docker_build(web["image_ref"], web["build"]["context"])
