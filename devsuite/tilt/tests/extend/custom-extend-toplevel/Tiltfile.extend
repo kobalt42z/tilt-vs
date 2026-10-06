@@ -1,0 +1,6 @@
+# Style 1: plain top-level Tilt calls, exactly like in a Tiltfile.
+WEB_IMAGE = "extfix-web"
+
+docker_build(WEB_IMAGE, "../_images/web")
+
+local_resource("extend-hello", cmd = "echo hello from Tiltfile.extend", labels = ["extend"])

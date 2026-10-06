@@ -1,0 +1,6 @@
+exit 0
+build web tilt
+build api tilt
+absent [devsuite] WARN
+contains web: docker_build extfix-web from extend(ctx)
+contains built by extend(ctx) docker_build

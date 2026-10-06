@@ -1,0 +1,4 @@
+# Fixture: dup-helper (see ../README.md)
+load("../../../main.star", "devsuite_up")
+
+devsuite_up()

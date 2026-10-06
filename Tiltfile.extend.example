@@ -1,0 +1,69 @@
+# Tiltfile.extend.example: copy to Tiltfile.extend (next to the root Tiltfile)
+# and keep what you need. Full reference: docs/extend.md.
+#
+# devsuite load_dynamic()s Tiltfile.extend after it has registered its own
+# resources, then calls extend(ctx) if you define it. Both styles below can
+# be mixed in one file.
+#
+# Rules of thumb
+#   * Build only services labelled `tilt-build: custom`. devsuite already
+#     builds dotnet/docker services; building those again stops the Tiltfile
+#     with a message telling you to set `tilt-build: custom`.
+#   * Never hard-code devsuite image names: take them from ctx (style 2).
+#   * Keep pull=False (air-gapped machines have no registry to pull from).
+#   * A custom service nobody builds is built by docker compose (warning).
+
+# ---------------------------------------------------------------------------
+# Style 1: plain top-level Tilt calls, exactly as in a Tiltfile.
+# ---------------------------------------------------------------------------
+
+# A helper process shown in the Tilt UI.
+# local_resource(
+#     "generate-clients",
+#     cmd = "dotnet tool run nswag run nswag.json",
+#     deps = ["src/Contracts"],
+#     labels = ["tools"],
+# )
+
+# Tilt extensions download from GitHub; air-gapped, vendor the extensions
+# repo and point at it:
+# v1alpha1.extension_repo(name = "default", url = "file:///C:/tools/tilt-extensions")
+# load("ext://restart_process", "docker_build_with_restart")
+
+# ---------------------------------------------------------------------------
+# Style 2: extend(ctx) gets the parsed compose model and devsuite helpers.
+#   ctx["project"]["services"][name]   ServiceSpec: image_ref, build{context,
+#                                      dockerfile,target,args}, labels, opts
+#   ctx["settings"]                    merged devsuite.json settings
+#   ctx["docker_build"](svc, context = None, **kwargs)   docker_build for svc
+#   ctx["custom_build"](svc, command, deps, **kwargs)    custom_build for svc
+#   ctx["claim"](svc)                  "I build svc some other way"
+#   ctx["log"].info("scope", "msg")    devsuite log format
+# ---------------------------------------------------------------------------
+def extend(ctx):
+    services = ctx["project"]["services"]
+
+    # 1. Simplest: build a `tilt-build: custom` service from its compose build
+    #    section, with your own options on top (live_update, only, ignore...).
+    # ctx["docker_build"](
+    #     "legacy-worker",
+    #     live_update = [sync("src/Legacy.Worker/out", "/app")],
+    # )
+
+    # 2. Any build command (Buildah, a script, a different Dockerfile...).
+    #    $EXPECTED_REF is set by Tilt to the tag it expects you to produce.
+    # ctx["custom_build"](
+    #     "legacy-worker",
+    #     "podman build -t $EXPECTED_REF src/Legacy.Worker",
+    #     deps = ["src/Legacy.Worker"],
+    #     skips_local_docker = False,
+    # )
+
+    # 3. Plain Tilt calls work too; take the ref from ctx.
+    # worker = services["legacy-worker"]
+    # docker_build(worker["image_ref"], worker["build"]["context"], pull = False)
+
+    # 4. Tweak a devsuite resource after the fact.
+    # dc_resource("db", labels = ["infra"])
+
+    ctx["log"].debug("extend", "Tiltfile.extend loaded (%d services)" % len(services))

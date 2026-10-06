@@ -1,0 +1,9 @@
+exit 0
+build api tilt
+build web tilt
+build db none
+absent [devsuite] WARN
+contains image=extfix-web built by Tiltfile.extend:4 docker_build()
+detail api target "final"
+detail api args ["GREETING=hello"]
+detail api pull false
