@@ -1,0 +1,22 @@
+# Task B fixture: one skip-build-layer API, one full-build API, one service
+# without a csproj (falls back to tilt-build=docker).
+services:
+  skip-api:
+    build:
+      context: ./src
+      dockerfile: Skip.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+      tilt-skip-build-layer: "true"
+    ports: ["18081:8080"]
+  full-api:
+    build:
+      context: ./src
+      dockerfile: Full.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+    ports: ["18082:8080"]
+  nocsproj:
+    build: ./nocsproj
+    labels:
+      tilt-build: dotnet
