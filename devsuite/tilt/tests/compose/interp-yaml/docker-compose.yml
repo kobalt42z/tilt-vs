@@ -1,0 +1,19 @@
+services:
+  api:
+    image: busybox
+    environment: { A: from-base, B: from-base }
+    labels: { tilt-group: base }
+    volumes: [ "./data:/data", "logs:/logs" ]
+  db:
+    image: postgres
+    environment:
+      LITERAL: "$$HOME"
+      COMBO: "${UNSET_VAR:-${PG_VERSION}}-x"
+      EMPTY_ALT: "${UNSET_VAR:+alt}"
+      SET_ALT: "${PG_VERSION:+alt}"
+      DASH_EMPTY: "${EMPTY-dflt}"
+      COLON_EMPTY: "${EMPTY:-dflt}"
+      BARE: "$PG_VERSION/x"
+      NUM: "$1"
+volumes:
+  logs: {}

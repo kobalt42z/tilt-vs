@@ -1,0 +1,2 @@
+exit 5
+log settings: default_build_kind="msbuild" is invalid

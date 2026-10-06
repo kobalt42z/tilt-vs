@@ -1,0 +1,3 @@
+services:
+  orders:
+    image: "app:${APP_TAG:?set APP_TAG in .env}"

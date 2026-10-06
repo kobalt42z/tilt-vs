@@ -1,0 +1,11 @@
+exit 0
+model .override.services.api.image == "override-patch-api"
+model .override.services.api.volumes | map(.target) == ["/remote_debugger", "/root/.vs-debugger/vs2022"]
+model .override.services.api.volumes[0].source == "/opt/vsdbg-new"
+model .override.services.api.environment == {"DOTNET_ENVIRONMENT": "Development", "PORT": "8080"}
+model .override.services.api.user == "root"
+model .override.services | has("bundled") | not
+log service 'api': tilt-resource-deps lists itself, ignored
+result .Manifests[] | select(.Name=="api") | (.ResourceDependencies | sort) == ["api-dotnet", "seed"]
+result .Manifests[] | select(.Name=="api") | .DeployTarget.ServiceYAML | contains("source: /opt/vsdbg-new") and contains("DOTNET_ENVIRONMENT: Development") and contains("KEEP: \"1\"") and contains("image: override-patch-api")
+result .Manifests[] | select(.Name=="bundled") | .Labels == {"compose":"compose"}

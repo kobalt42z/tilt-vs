@@ -1,0 +1,2 @@
+exit 5
+log service 'ghost' has neither build nor image

@@ -1,0 +1,11 @@
+services:
+  api:
+    build: ../_ctx
+    labels: { tilt-build: custom, tilt-resource-deps: "api, seed" }
+    environment: { KEEP: "1" }
+    volumes: [ "./x:/remote_debugger" ]
+  seed:
+    image: busybox
+  bundled:
+    build: ../_ctx
+    labels: { tilt-build: compose }

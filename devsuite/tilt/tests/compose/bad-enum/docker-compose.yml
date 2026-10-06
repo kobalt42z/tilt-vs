@@ -1,0 +1,4 @@
+services:
+  orders:
+    build: ../_ctx
+    labels: { tilt-build: maven }
