@@ -164,7 +164,8 @@ files can still write into its folder; set `isolate_intermediates: false` only i
   (prints `ok ...` lines, fails on the first mismatch).
 * Fixture stack: `devsuite/tilt/tests/dotnet/` (VS-template Dockerfiles; `skip-api`
   with skip build layer, `full-api` full build, both referencing `Shared.Lib`;
-  `nocsproj` falls back to docker). `cd` there, then `tilt ci --port 0`.
+  `nocsproj` falls back to docker; `tilt-debugger: "false"` so no vsdbg drop is
+  needed). `cd` there, then `tilt ci --port 0`.
   Live-update check: `tilt up`, edit `src/Shared.Lib/Greeting.cs`, `curl
   localhost:18081/` and `:18082/` show the new text after publish + sync + restart,
   with no image build in the logs.
