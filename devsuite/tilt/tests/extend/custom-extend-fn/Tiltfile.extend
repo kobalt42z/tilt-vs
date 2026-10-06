@@ -1,0 +1,4 @@
+# Style 2: extend(ctx) with the plain Tilt docker_build and the ref from ctx.
+def extend(ctx):
+    web = ctx["project"]["services"]["web"]
+    docker_build(web["image_ref"], web["build"]["context"], pull = False)

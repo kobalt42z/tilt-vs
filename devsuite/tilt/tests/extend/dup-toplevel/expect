@@ -1,0 +1,4 @@
+exit 5
+contains Tiltfile.extend:2 docker_build() builds image 'extfix-api' for service 'api', but devsuite already builds it
+contains set the label `tilt-build: custom` on 'api'
+absent has already been defined

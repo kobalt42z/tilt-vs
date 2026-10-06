@@ -1,0 +1,4 @@
+# The ref is computed in a loop, so devsuite cannot see it before Tilt runs it.
+def extend(ctx):
+    for name in ["web", "api"]:
+        docker_build(ctx["project"]["services"][name]["image_ref"], "../_images/web")

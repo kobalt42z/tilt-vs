@@ -1,0 +1,12 @@
+# The ref reaches docker_build through variables and a keyword argument;
+# the pre-scan follows the chain back to ctx["project"]["services"]["web"].
+# docker_build("extfix-api", ".") in a comment is ignored, so is this string:
+NOTE = """docker_build("extfix-api", ".")"""
+
+def extend(ctx):
+    services = ctx["project"]["services"]
+    w = services["web"]
+    docker_build(
+        ref = w["image_ref"],
+        context = w["build"]["context"],
+    )
