@@ -19,6 +19,12 @@
 #                                        an "x" path segment in its value becomes that letter (C:\src -> /mnt/c/src).
 #                                        Entries are merged over the default; set "X:\\": "" to drop the wildcard.
 #   doctor      powershell ... Test-DevSuite.ps1   printed when the engine is unreachable
+#   copy        "auto"                   copy mode: auto = same as translate; true | false force.
+#                                        devsuite bind mounts (vsdbg) and the targets listed in the
+#                                        tilt-copy-volumes label become named volumes seeded with
+#                                        `docker cp` (exec bits and file locks work, unlike 9p)
+#   copy_image  "mcr.microsoft.com/dotnet/aspnet:10.0"   local image with sh/find/chmod used to seed
+#   copy_cli    "docker"                 container CLI the seed scripts call
 #
 # Effective values are written back to settings["podman"], plus
 # settings["podman"]["_engine"] = {"name","version","api","os","arch","platform"} and
@@ -34,9 +40,15 @@ DEFAULTS = {
     "translate": "auto",
     "path_map": {"X:\\": "/mnt/x/"},
     "doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File devsuite\\podman\\Test-DevSuite.ps1",
+    "copy": "auto",
+    "copy_image": "mcr.microsoft.com/dotnet/aspnet:10.0",
+    "copy_cli": "docker",
 }
 
 _FAIL = "__DEVSUITE_PROBE_FAILED__"
+
+# devsuite/podman/seed-volume.{sh,ps1}; relative paths resolve against this file's dir
+_SCRIPT_DIR = os.path.abspath("../podman")
 _WILDCARD = "X:\\"
 
 # ---------------------------------------------------------------------------
@@ -155,6 +167,8 @@ def preflight(settings):
     cfg["_translate"] = _translate_enabled(cfg, engine)
     log.info("podman", "bind path translation %s (podman.translate=%s, host os=%s)" % (
         "on" if cfg["_translate"] else "off", cfg["translate"], os.name))
+    cfg["_copy"] = _copy_enabled(cfg)
+    log.info("podman", "copy mode %s (podman.copy=%s)" % ("on" if cfg["_copy"] else "off", cfg["copy"]))
 
 def _buildkit(cfg, engine):
     mode = _flag(cfg["buildkit"])
@@ -175,6 +189,12 @@ def _buildkit(cfg, engine):
         # Keeping it in the user environment (Setup-PodmanMachine.ps1 does)
         # also covers plain `docker compose` / `podman` runs outside Tilt.
         log.debug("podman", "DOCKER_BUILDKIT was %s when Tilt started" % (before or "unset"))
+
+def _copy_enabled(cfg):
+    mode = _flag(cfg["copy"])
+    if mode != "auto":
+        return mode
+    return cfg.get("_translate") == True
 
 def _translate_enabled(cfg, engine):
     mode = _flag(cfg["translate"])
@@ -388,22 +408,136 @@ def translate_volumes(name, original, extra, base_dir, path_map, home = ""):
             out.append(b)
     return out, changes
 
+# ---------------------------------------------------------------------------
+# copy mode: bind mounts -> named volumes seeded with `docker cp`
+# A 9p share from the Hyper-V machine loses the exec bit and file locks, and a
+# remote engine cannot see host paths at all. Copied folders live on the
+# engine's own filesystem instead. Container writes never reach the host.
+# ---------------------------------------------------------------------------
+def _slug(s, n):
+    out = ""
+    for c in s.lower().elems():
+        out += c if (c.isalnum() or c in "_.-") else "-"
+    out = out.strip("-._")[:n].strip("-._")
+    return out or "x"
+
+def volume_name(project, host):
+    """Stable, engine-valid volume name for a host folder."""
+    base = host.replace("\\", "/").rstrip("/").split("/")[-1]
+    h = "%x" % (hash(host) & 0xffffffff)
+    return "devsuite_%s_%s_%s" % (_slug(project, 20), _slug(base, 24), "0" * (8 - len(h)) + h)
+
+def plan_copies(name, original, extra, base_dir, targets, project, is_dir, home = ""):
+    """Decides which binds of one service become seeded volumes.
+
+    original: the service's compose volumes; binds whose target is listed in
+              `targets` (or all binds when targets has "*") are copied.
+    extra:    devsuite volumes from the override; every bind is copied.
+    is_dir:   function(host_path) -> bool; non-folders keep their bind.
+    Returns {"original": kept originals, "extra": new override volumes
+    (copied originals first, then devsuite ones), "seeds": [{"volume","host","target"}],
+    "warnings": [str]}."""
+    copy_all = "*" in targets
+    out = {"original": [], "extra": [], "seeds": [], "warnings": []}
+    devsuite = []
+    seen = {}
+
+    def convert(b):
+        host = resolve_source(b["source"], base_dir, home)
+        if not is_dir(host):
+            out["warnings"].append("%s: %s is not a folder (or is empty); copy mode needs a folder, kept as a bind mount" % (name, host))
+            return None
+        vol = volume_name(project, host)
+        out["seeds"].append({"volume": vol, "host": host, "target": b["target"]})
+        v = {"type": "volume", "source": vol, "target": b["target"]}
+        if b.get("read_only"):
+            v["read_only"] = True
+        return v
+
+    for v in original or []:
+        b = parse_volume(v)
+        if b != None and b["type"] == "bind" and b.get("source") and (copy_all or b["target"] in targets):
+            seen[b["target"]] = True
+            c = convert(b)
+            if c != None:
+                out["extra"].append(c)
+                continue
+        out["original"].append(v)
+    for v in extra or []:
+        b = parse_volume(v)
+        if b != None and b["type"] == "bind" and b.get("source"):
+            c = convert(b)
+            if c != None:
+                devsuite.append(c)
+                continue
+        devsuite.append(v)
+    out["extra"] = out["extra"] + devsuite
+    for t in targets:
+        if t != "*" and t not in seen:
+            out["warnings"].append("%s: tilt-copy-volumes lists %s but the service has no bind mount with that target" % (name, t))
+    return out
+
+def _is_dir(host):
+    # Tilt has no isdir(); listdir() of a file (or an empty folder) is empty.
+    return os.path.exists(host) and len(listdir(host)) > 0
+
+def _register_seed(cfg, seed):
+    tag = seed["volume"].split("_")
+    rname = "seed-%s-%s" % (tag[-2], tag[-1][:4])
+    args = [seed["volume"], seed["host"], cfg["copy_image"], cfg["copy_cli"]]
+    local_resource(
+        rname,
+        cmd = ["sh", os.path.join(_SCRIPT_DIR, "seed-volume.sh")] + args,
+        cmd_bat = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                   os.path.join(_SCRIPT_DIR, "seed-volume.ps1")] + args,
+        deps = [seed["host"]],
+        labels = ["devsuite"],
+        allow_parallel = True,
+    )
+    return rname
+
 def translate(ctx, override):
+    """Rewrites bind sources for the Podman machine (translate) and turns the
+    selected binds into seeded named volumes (copy). Name kept for main.star."""
     cfg = _config(ctx["settings"])
     enabled = cfg.get("_translate")
     if enabled == None:  # preflight not run (fixtures, callers outside main.star)
         enabled = _flag(cfg["translate"]) == True
+    copy = cfg.get("_copy")
+    if copy == None:
+        copy = _flag(cfg["copy"]) == True
     if not enabled:
         log.debug("podman", "bind path translation off")
+    if not enabled and not copy:
         return override
     services = override.get("services") or {}
     total = 0
+    seeds = {}
     for name in ctx["project"]["order"]:
         spec = ctx["project"]["services"][name]
         svc = services.get(name) or {}
         raw = spec.get("raw") or {}
-        vols, changes = translate_volumes(name, raw.get("volumes"), svc.get("volumes"),
-                                          spec["compose_dir"], cfg["path_map"])
+        original = raw.get("volumes")
+        extra = svc.get("volumes")
+        res = ctx["results"].get(name)
+        if copy:
+            plan = plan_copies(name, original, extra, spec["compose_dir"],
+                               spec["opts"].get("copy_volumes") or [], ctx["project"]["name"], _is_dir)
+            original, extra = plan["original"], plan["extra"]
+            for w in plan["warnings"]:
+                log.warn("podman", w)
+            for sd in plan["seeds"]:
+                if sd["volume"] not in seeds:
+                    seeds[sd["volume"]] = {"seed": sd, "services": []}
+                if name not in seeds[sd["volume"]]["services"]:
+                    seeds[sd["volume"]]["services"].append(name)
+                log.debug("podman", "%s: copy %s -> volume %s at %s" % (name, sd["host"], sd["volume"], sd["target"]))
+            if plan["seeds"] and res != None:
+                res["notes"].append("%d mount(s) copied to volumes" % len(plan["seeds"]))
+        if enabled:
+            vols, changes = translate_volumes(name, original, extra, spec["compose_dir"], cfg["path_map"])
+        else:
+            vols, changes = (extra or []), []
         for c in changes:
             if c.startswith("!"):
                 log.warn("podman", "%s: no podman.path_map entry for bind source %s; passed through as is" % (name, c[1:]))
@@ -415,9 +549,22 @@ def translate(ctx, override):
             services[name] = svc
         if mapped:
             total += mapped
-            res = ctx["results"].get(name)
             if res != None:
                 res["notes"].append("%d bind path(s) translated" % mapped)
     override["services"] = services
-    log.info("podman", "translated %d bind source(s) for the Podman machine" % total)
+    if enabled:
+        log.info("podman", "translated %d bind source(s) for the Podman machine" % total)
+    if seeds:
+        top = dict(override.get("volumes") or {})
+        for vol in sorted(seeds.keys()):
+            entry = seeds[vol]
+            rname = _register_seed(cfg, entry["seed"])
+            top[vol] = {"external": True}
+            for name in entry["services"]:
+                res = ctx["results"].get(name)
+                if res != None and rname not in res["resource_deps"]:
+                    res["resource_deps"].append(rname)
+            log.info("podman", "copy mode: %s -> volume %s (resource %s, used by %s)" % (
+                entry["seed"]["host"], vol, rname, ", ".join(entry["services"])))
+        override["volumes"] = top
     return override

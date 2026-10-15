@@ -53,6 +53,9 @@ LABELS = [
      "default": [], "owner": "compose"},
     {"key": "tilt-resource-deps", "opt": "resource_deps", "type": "list",
      "default": [], "owner": "compose"},
+    # --- proposed: volumes ------------------------------------------------
+    {"key": "tilt-copy-volumes", "opt": "copy_volumes", "type": "list",
+     "default": [], "owner": "podman"},
 ]
 
 BUILD_KINDS = ["dotnet", "custom", "docker", "compose", "none"]

@@ -1,6 +1,8 @@
 # podman.star end-to-end scenario on a Linux Docker engine (see run.sh).
 # The engine probe is faked as Podman and path_map sends ./host to ./vm, so the
 # container must see vm/marker if the re-emitted (translated) bind won.
+# copy mode: `copied` only stays up if ./host/tools reached it as a seeded
+# named volume (not a bind), with its exec bit, and flock works on it.
 services:
   probe:
     image: alpine:3.20
@@ -8,6 +10,13 @@ services:
     volumes:
       - ./host:/probe:ro
       - cache:/cache
+  copied:
+    image: alpine:3.20
+    labels:
+      tilt-copy-volumes: /tools
+    command: ["sh", "-c", "/tools/hello.sh | grep -qx tools-ok && flock -s /tools/hello.sh true && sleep 3600"]
+    volumes:
+      - ./host/tools:/tools:ro
   built:
     build: ./img
     labels:

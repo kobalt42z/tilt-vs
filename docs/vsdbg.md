@@ -122,8 +122,9 @@ Settings (`devsuite.json`, section `vsdbg`, all optional):
 ```
 
 `drop_dir` may be absolute (a shared folder instead of Git LFS). With Podman on Hyper-V
-the source paths are Windows paths; task E's `podman.star translate` rewrites them to the
-VM path like every other bind mount.
+the drop is not bind-mounted: 9p shares drop the exec bit, so vsdbg could not start.
+Copy mode (docs/podman-hyperv.md section 4a) seeds each `<key>/<rid>` folder into a
+named volume once (`seed-*` resources) and mounts the volumes read-only at the same paths.
 
 ## 3. Check a container by hand
 
