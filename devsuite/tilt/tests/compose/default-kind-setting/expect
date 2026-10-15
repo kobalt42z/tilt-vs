@@ -1,0 +1,6 @@
+exit 0
+model .name == "mystackv2"
+model .services.web.build_kind == "docker" and .services.web.kind_source == "default"
+model .services.web.image_ref == "mystackv2-web"
+log web: no tilt-build label, defaulted to 'docker'
+result .Manifests[0].DeployTarget.Spec.project.name == "mystackv2"

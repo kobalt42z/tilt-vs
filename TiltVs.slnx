@@ -1,0 +1,19 @@
+<Solution>
+  <!-- DevSuite.Launcher is listed first so VS 2026 picks it as the default
+       startup project (F5 = tilt up). With "Only build startup projects and
+       dependencies on Run" (VS default) F5 builds only the launcher; Tilt
+       builds the services. -->
+  <Project Path="devsuite/launcher/DevSuite.Launcher/DevSuite.Launcher.csproj" />
+  <Folder Name="/samples/">
+    <File Path="samples/Directory.Build.props" />
+    <Project Path="samples/Catalog.Api/Catalog.Api.csproj" />
+    <Project Path="samples/Orders.Api/Orders.Api.csproj" />
+    <Project Path="samples/Samples.Shared/Samples.Shared.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="devsuite.json" />
+    <File Path="docker-compose.yml" />
+    <File Path="Tiltfile" />
+    <File Path="Tiltfile.extend" />
+  </Folder>
+</Solution>

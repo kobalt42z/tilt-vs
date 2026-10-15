@@ -1,0 +1,10 @@
+exit 0
+model .services.api.build_kind == "dotnet" and .services.api.kind_source == "default"
+model .services.cache.build_kind == "none" and .services.cache.kind_source == "no-build"
+model .services.cache.image_ref == "redis:7"
+model .services.remote.build_kind == "compose" and .services.remote.kind_source == "fallback"
+model .override.services | has("remote") | not
+log api: no tilt-build label, defaulted to 'dotnet'
+log cache: tilt-build=dotnet ignored, no build section
+log remote: no tilt-build label and remote build context
+result .Manifests[] | select(.Name=="api") | .Labels == {"dotnet":"dotnet"}

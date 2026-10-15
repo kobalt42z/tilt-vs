@@ -1,0 +1,6 @@
+services:
+  api:
+    image: busybox
+  debug-tools:
+    image: busybox
+    profiles: [debug]

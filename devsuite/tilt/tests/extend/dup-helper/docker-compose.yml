@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: ../_images/app
+      target: final
+      args: ["GREETING=hello", "UNSET_IN_ENV"]
+    labels:
+      tilt-build: docker
+  web:
+    build: ../_images/web
+    labels:
+      tilt-build: custom
+  db:
+    image: alpine:3.20
+    command: ["sleep", "infinity"]

@@ -1,0 +1,9 @@
+services:
+  worker:
+    build: ../_ctx
+    labels:
+      - tilt-build=docker
+      - tilt-live-update=off
+      - tilt-group=jobs
+      - tilt-publish-args=-p:Foo=bar -p:Baz=1
+      - plain-flag

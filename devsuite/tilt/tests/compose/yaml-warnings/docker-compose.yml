@@ -1,0 +1,8 @@
+include: [ other.yml ]
+services:
+  api:
+    image: busybox
+    environment: { X: "$NOT_SET_ANYWHERE" }
+  child:
+    extends: { service: api }
+    image: busybox

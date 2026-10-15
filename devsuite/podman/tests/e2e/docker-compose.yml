@@ -1,0 +1,16 @@
+# podman.star end-to-end scenario on a Linux Docker engine (see run.sh).
+# The engine probe is faked as Podman and path_map sends ./host to ./vm, so the
+# container must see vm/marker if the re-emitted (translated) bind won.
+services:
+  probe:
+    image: alpine:3.20
+    command: ["sh", "-c", "grep -qx vm /probe/marker && sleep 3600"]
+    volumes:
+      - ./host:/probe:ro
+      - cache:/cache
+  built:
+    build: ./img
+    labels:
+      tilt-build: docker
+volumes:
+  cache: {}

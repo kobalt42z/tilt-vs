@@ -1,0 +1,20 @@
+load("../harness.star", "run")
+
+ctx = run()
+raw = ctx["project"]["services"]["db"]["raw"]
+api = ctx["project"]["services"]["api"]["raw"]
+def check(got, want, what):
+    if got != want:
+        fail("%s: got %r, want %r" % (what, got, want))
+check(raw["environment"]["LITERAL"], "$HOME", "$$ escape")
+check(raw["environment"]["COMBO"], "15-x", "nested default")
+check(raw["environment"]["EMPTY_ALT"], "", ":+ on unset")
+check(raw["environment"]["SET_ALT"], "alt", ":+ on set")
+check(raw["environment"]["DASH_EMPTY"], "", "- keeps empty value")
+check(raw["environment"]["COLON_EMPTY"], "dflt", ":- replaces empty value")
+check(raw["environment"]["BARE"], "15/x", "$VAR form")
+check(raw["environment"]["NUM"], "$1", "$ followed by digit")
+check(api["environment"], {"A": "from-base", "B": "from-override", "C": "from-shell"}, "env merge")
+check(api["volumes"], ["./other:/data", "logs:/logs"], "volumes merged by target")
+check(ctx["project"]["services"]["api"]["labels"]["tilt-group"], "g", "list labels override dict labels")
+print("interp-yaml checks ok")

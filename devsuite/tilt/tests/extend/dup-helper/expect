@@ -1,0 +1,3 @@
+exit 5
+contains extend(ctx) docker_build builds image 'extfix-api' for service 'api', but devsuite already builds it
+absent has already been defined

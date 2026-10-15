@@ -1,0 +1,13 @@
+services:
+  api:
+    environment:
+      - B=from-override
+      - C=${FROM_SHELL}
+    labels:
+      - tilt-group=${GROUP_NAME}
+      - tilt-trigger=manual
+    volumes:
+      - ./other:/data
+  extra:
+    image: busybox
+    labels: { tilt-auto-start: "false" }

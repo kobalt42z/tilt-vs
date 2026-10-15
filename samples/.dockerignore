@@ -1,0 +1,9 @@
+# Build context for the .NET samples is samples/ (VS "solution dir" style).
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/TestResults/
+**/Properties/launchSettings.json
+web/
+e2e/

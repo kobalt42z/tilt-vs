@@ -1,0 +1,10 @@
+# devsuite work dir (publish output, generated files)
+.tilt/
+devsuite.local.json
+# .NET / VS
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/

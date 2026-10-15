@@ -1,0 +1,111 @@
+# Unit-style checks for dockerfile.star and ignore.star (task B).
+# Run: tilt alpha tiltfile-result -f devsuite/tilt/tests/dotnet/unit/Tiltfile
+# Any failed check stops the Tiltfile with the check name.
+load("../../../dockerfile.star", "parse_text", "final_stage", "app_path", "build_copies", "rewrite", "detect_rid")
+load("../../../ignore.star", "dotnet_ignores")
+
+def check(name, got, want):
+    if got != want:
+        fail("FAIL %s:\n  got:  %r\n  want: %r" % (name, got, want))
+    print("ok   %s" % name)
+
+# --- VS 2026 template --------------------------------------------------------
+VS = """# comment
+ARG REPO=mcr.microsoft.com/dotnet
+FROM $REPO/aspnet:10.0 AS base
+USER $APP_UID
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
+COPY ["Orders.Api/Orders.Api.csproj", "Orders.Api/"]
+RUN dotnet restore "./Orders.Api/Orders.Api.csproj"
+COPY . .
+WORKDIR "/src/Orders.Api"
+RUN dotnet build "./Orders.Api.csproj" -c $BUILD_CONFIGURATION \\
+    -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "./Orders.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "Orders.Api.dll"]
+"""
+p = parse_text(VS)
+check("vs: 4 stages", [s["name"] for s in p["stages"]], ["base", "build", "publish", "final"])
+check("vs: global args", p["global_args"], ["ARG REPO=mcr.microsoft.com/dotnet"])
+check("vs: continuation joined", p["stages"][1]["instructions"][-1]["args"].endswith("-c $BUILD_CONFIGURATION      -o /app/build"), True)
+check("vs: final", final_stage(p, "")["name"], "final")
+check("vs: publish derives from build", p["stages"][2]["from_stage"], 1)
+check("vs: app path", app_path(p, ""), "/app")
+check("vs: one build copy", len(build_copies(p, "")), 1)
+out = rewrite(p, "", ".tilt/publish/orders-api", "")
+check("vs: rewritten", out["text"], """ARG REPO=mcr.microsoft.com/dotnet
+
+FROM $REPO/aspnet:10.0 AS base
+USER $APP_UID
+WORKDIR /app
+EXPOSE 8080
+
+FROM base AS final
+WORKDIR /app
+# devsuite: was COPY --from=publish /app/publish .
+COPY [".tilt/publish/orders-api/", "."]
+ENTRYPOINT ["dotnet", "Orders.Api.dll"]
+""")
+check("vs: no sdk left", "sdk" in out["text"], False)
+check("vs: rid", detect_rid(p, ""), "linux-x64")
+
+# --- target, index refs, extra stages, plain COPY, alpine ----------------------
+OTHER = """# escape=`
+FROM node:20 AS ui
+RUN npm ci && npm run build
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS sdk
+WORKDIR /src
+COPY . .
+RUN dotnet publish Api.csproj -o /out
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+WORKDIR /srv
+COPY --chown=app:app --from=1 /out ./bin/
+COPY --from=ui /ui/dist wwwroot/
+COPY docker/entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh", `
+  "dotnet", "bin/Api.dll"]
+
+FROM runtime AS tests
+RUN echo never built
+"""
+p = parse_text(OTHER)
+check("other: escape directive", p["stages"][2]["instructions"][-1]["args"], "[\"/entrypoint.sh\",    \"dotnet\", \"bin/Api.dll\"]")
+check("other: target", final_stage(p, "runtime")["name"], "runtime")
+check("other: app path (relative dst)", app_path(p, "runtime"), "/srv/bin")
+check("other: rid", detect_rid(p, "runtime"), "linux-musl-x64")
+out = rewrite(p, "runtime", "../.tilt/publish/api", "src/Api")
+check("other: keeps ui stage, drops sdk", [l for l in out["text"].split("\n") if l.startswith("FROM")],
+      ["FROM node:20 AS ui", "FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime"])
+check("other: copy flags kept", "COPY --chown=app:app [\"../.tilt/publish/api/\", \"./bin/\"]" in out["text"], True)
+check("other: plain copy rebased", "COPY [\"src/Api/docker/entrypoint.sh\", \"/entrypoint.sh\"]" in out["text"], True)
+check("other: context paths", out["context_paths"], ["src/Api/docker/entrypoint.sh"])
+check("other: tests stage dropped", "never built" in out["text"], False)
+
+# --- nothing to strip ----------------------------------------------------------
+p = parse_text("FROM mcr.microsoft.com/dotnet/aspnet:10.0\nWORKDIR /app\nCOPY bin/Release/net10.0/publish .\n")
+check("plain: no build copies", build_copies(p, ""), [])
+check("plain: app path from WORKDIR", app_path(p, ""), "/app")
+
+# --- ignores -------------------------------------------------------------------
+spec = {"compose_dir": "/repo", "opts": {"ignore": ["**/Generated/**", "/abs/x"]}}
+ig = dotnet_ignores(spec, ["/repo/src/Api"], "/repo/.tilt")
+check("ignore: per base", "/repo/src/Api/**/obj/**" in ig, True)
+check("ignore: label relative to compose dir", "/repo/**/Generated/**" in ig, True)
+check("ignore: label absolute kept", "/abs/x" in ig, True)
+check("ignore: work dir", ig[-1], "/repo/.tilt/**")
+check("ignore: appsettings watched", [x for x in ig if "appsettings" in x or "wwwroot" in x], [])
+
+print("dockerfile/ignore checks passed")

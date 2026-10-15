@@ -1,0 +1,10 @@
+<Project>
+  <!-- Shared by every sample project. Listed in the Dockerfiles so the full
+       (in-container) build sees the same settings as the local publish. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

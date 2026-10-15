@@ -1,0 +1,4 @@
+exit 0
+build web compose
+resource extend-hello
+contains WARN  extend    | web: tilt-build=custom but Tiltfile.extend does not build image 'extfix-web'

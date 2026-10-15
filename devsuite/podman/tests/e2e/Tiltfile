@@ -1,0 +1,2 @@
+load("../../../tilt/main.star", "devsuite_up")
+devsuite_up()

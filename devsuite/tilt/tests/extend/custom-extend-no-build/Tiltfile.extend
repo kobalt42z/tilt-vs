@@ -1,0 +1,2 @@
+# Exists but builds nothing for the custom service "web".
+local_resource("extend-hello", cmd = "echo hello", labels = ["extend"])

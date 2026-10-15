@@ -1,0 +1,6 @@
+<Project>
+  <!-- Watched by the <svc>-dotnet resource (Directory.* files up the tree). -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+</Project>

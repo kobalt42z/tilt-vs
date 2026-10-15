@@ -1,0 +1,26 @@
+# Global Tilt file-watch ignores (dockerignore syntax, relative to this folder).
+# Shipped by devsuite (task B, docs/dotnet.md). Paths matching here never trigger
+# any resource. The devsuite work dir (.tilt/) is NOT listed: its publish/ folder
+# is what live_update syncs. Per-service extras: the tilt-ignore compose label.
+# wwwroot/ and appsettings*.json are deliberately watched.
+**/bin
+**/bin/**
+**/obj
+**/obj/**
+**/.vs
+**/.vs/**
+**/*.user
+**/*.suo
+**/TestResults
+**/TestResults/**
+**/node_modules
+**/node_modules/**
+**/.git
+**/.git/**
+**/.idea
+**/.idea/**
+**/*.md
+**/*.swp
+**/~*
+**/*.tmp
+**/Properties/launchSettings.json

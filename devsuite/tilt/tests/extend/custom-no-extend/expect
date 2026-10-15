@@ -1,0 +1,5 @@
+exit 0
+build web compose
+build api tilt
+contains WARN  extend    | web: tilt-build=custom but Tiltfile.extend does not exist
+contains compose builds it (no build in Tiltfile.extend)

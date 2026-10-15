@@ -1,0 +1,2 @@
+exit 5
+log service 'orders': label tilt-trigger="sometimes" is invalid, expected one of auto | manual

@@ -1,0 +1,2 @@
+# "api" is tilt-build=docker, so devsuite already builds extfix-api.
+docker_build("extfix-api", "../_images/app")

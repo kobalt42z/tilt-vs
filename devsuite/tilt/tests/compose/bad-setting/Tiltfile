@@ -1,0 +1,3 @@
+load("../harness.star", "run")
+
+run()

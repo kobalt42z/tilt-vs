@@ -1,0 +1,6 @@
+exit 0
+model .services.worker.build_kind == "docker"
+model .services.worker.opts.live_update == false
+model .services.worker.opts.publish_args == "-p:Foo=bar -p:Baz=1"
+model .services.worker.labels["plain-flag"] == ""
+result .Manifests[0].Labels == {"jobs":"jobs"}

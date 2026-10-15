@@ -1,0 +1,4 @@
+# Style 2 with devsuite helpers: ref, context and Dockerfile come from compose.
+def extend(ctx):
+    ctx["docker_build"]("web", only = ["Dockerfile"])
+    ctx["log"].info("extend", "fixture: helper build registered")

@@ -1,0 +1,4 @@
+{
+  "project_name": "extfix",
+  "default_build_kind": "docker"
+}

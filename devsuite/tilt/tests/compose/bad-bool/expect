@@ -1,0 +1,2 @@
+exit 5
+log service 'orders': label tilt-auto-start="maybe" is invalid, expected true or false

@@ -1,0 +1,26 @@
+# Task B fixture: one skip-build-layer API, one full-build API, one service
+# without a csproj (falls back to tilt-build=docker). The debugger mount (task C)
+# is off so the fixture runs without a vsdbg drop.
+services:
+  skip-api:
+    build:
+      context: ./src
+      dockerfile: Skip.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+      tilt-debugger: "false"
+      tilt-skip-build-layer: "true"
+    ports: ["18081:8080"]
+  full-api:
+    build:
+      context: ./src
+      dockerfile: Full.Api/Dockerfile
+    labels:
+      tilt-build: dotnet
+      tilt-debugger: "false"
+    ports: ["18082:8080"]
+  nocsproj:
+    build: ./nocsproj
+    labels:
+      tilt-build: dotnet
+      tilt-debugger: "false"

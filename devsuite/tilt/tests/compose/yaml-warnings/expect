@@ -1,0 +1,5 @@
+exit 0
+log variable 'NOT_SET_ANYWHERE' is not set, defaulting to an empty string
+log 'include' is not supported without the compose CLI, ignored
+log service 'child': 'extends' is not supported without the compose CLI, ignored
+model .order == ["api", "child"]
