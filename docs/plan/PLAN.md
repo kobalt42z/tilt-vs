@@ -88,6 +88,7 @@ A service **without** `build:` is deploy-only (kind `none`) regardless of labels
 | `tilt-auto-start` | `true` | `false` = resource is registered but not started |
 | `tilt-links` | empty | extra URLs shown on the resource in Tilt UI |
 | `tilt-resource-deps` | compose `depends_on` (automatic) | extra Tilt resource deps |
+| `tilt-copy-volumes` | empty | container paths of binds to copy into seeded named volumes instead of mounting over 9p (`*` = all); see docs/podman-hyperv.md 4a |
 
 Example:
 

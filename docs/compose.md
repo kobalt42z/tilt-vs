@@ -86,7 +86,7 @@ Types and validation (`labels.star`):
 |---|---|---|---|
 | enum | `tilt-build`, `tilt-trigger`, `tilt-debugger-rid` | listed values, case-insensitive | Tiltfile stops: `service 'orders': label tilt-build="maven" is invalid, expected one of dotnet \| custom \| docker \| compose` |
 | bool | `tilt-skip-build-layer`, `tilt-live-update`, `tilt-debugger`, `tilt-auto-start` | `true/false`, `1/0`, `yes/no`, `on/off`; empty = false | Tiltfile stops: `... expected true or false` |
-| list | `tilt-watch`, `tilt-ignore`, `tilt-group`, `tilt-links`, `tilt-resource-deps` | comma separated, blanks trimmed | `tilt-group` items must be valid Tilt labels (letters, digits, `-_.`, max 63, alphanumeric at both ends) |
+| list | `tilt-watch`, `tilt-ignore`, `tilt-group`, `tilt-links`, `tilt-resource-deps`, `tilt-copy-volumes` | comma separated, blanks trimmed | `tilt-group` items must be valid Tilt labels (letters, digits, `-_.`, max 63, alphanumeric at both ends) |
 | string | `tilt-project`, `tilt-configuration`, `tilt-app-path`, `tilt-publish-args`, `tilt-debugger-user-home` | anything; empty = default | - |
 
 Any other label starting with `tilt-` is ignored with a warning and a suggestion:

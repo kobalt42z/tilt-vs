@@ -113,6 +113,71 @@ When it runs: `podman.translate` = `auto` (default) translates only when Tilt
 runs on Windows **and** the engine is Podman. On Linux, or with Docker Desktop,
 nothing changes.
 
+## 4a. Copy mode: folders that need Linux file semantics
+
+A 9p share from the Hyper-V machine has two gaps: files lose the **exec bit**
+and **file locks** (`fcntl`/`flock`) fail. That breaks vsdbg (it must be
+executable) and anything that locks a file it reads, such as MIT Kerberos with
+a keytab. A remote engine (`docker context` to another Linux host) cannot see
+host paths at all.
+
+Copy mode puts those folders on the engine's own filesystem instead of mounting
+them over 9p:
+
+* the bind becomes a **named volume** (`devsuite_<project>_<folder>_<hash>`,
+  declared `external` in the override), with the same `target` and `read_only`;
+* a `seed-<folder>-<hash>` local resource fills it with
+  `devsuite/podman/seed-volume.{sh,ps1}`: empty the volume, `docker cp
+  <folder>/. <helper>:/dst`, `chmod -R a+rX`. `docker cp` sends a tar stream
+  through the API (like Tilt's live update), and a Windows client marks every
+  file executable, so the exec bit is back; locks work on the VM's disk;
+* every service using it gets the seed resource as a `resource_deps`, so the
+  container never starts before its files are there; the seed resource watches
+  the folder and copies it again on change (the running container sees the new
+  files at once, the volume is shared);
+* identical folders are seeded once (vsdbg is shared by every .NET service).
+
+What is copied:
+
+| Mount | When copy mode is on |
+|---|---|
+| devsuite binds (vsdbg) | always |
+| your compose binds | when their container path is listed in the service label `tilt-copy-volumes` (comma list), or every bind with `tilt-copy-volumes: "*"` |
+| named / anonymous volumes | never (already on the VM's disk) |
+
+```yaml
+services:
+  billing:
+    labels:
+      tilt-copy-volumes: /etc/krb, /opt/scripts
+    volumes:
+      - ./deploy/krb:/etc/krb:ro          # keytab + krb5.conf, copied
+      - ./deploy/scripts:/opt/scripts:ro  # entrypoint scripts, copied (exec bit)
+      - krb5cache:/var/kerberos           # ticket cache written by kinit: a named volume, nothing to copy
+volumes:
+  krb5cache: {}
+```
+
+Limits:
+
+* **Folders only.** A volume cannot be mounted on a single file path, so a
+  single-file bind (`./app.keytab:/etc/app.keytab`) listed in the label stays a
+  bind with a warning. Move the file into a folder and mount the folder.
+  An empty folder is treated the same way.
+* **One way.** Container writes stay in the volume and never reach the host.
+  Writable state shared between services (a Kerberos ticket cache) belongs in
+  a plain named volume; data that must come back to Windows needs a bind (or an
+  SMB/CIFS volume, not provided by devsuite).
+* The helper image (`copy_image`, default `mcr.microsoft.com/dotnet/aspnet:10.0`)
+  must be present locally; it is run with `--pull=never` and only needs `sh`,
+  `find` and `chmod`.
+* `tilt down` leaves the seeded volumes in place (they are `external`); remove
+  them with `docker volume rm $(docker volume ls -q --filter label=devsuite.seed=true)`.
+
+`copy` = `auto` (default) turns copy mode on exactly when bind translation is on
+(Windows + Podman); `true` forces it (remote engine, or Docker Desktop if its
+shares give you trouble), `false` turns it off.
+
 ## 5. Settings (`devsuite.json` / `devsuite.local.json`, section `podman`)
 
 | Key | Default | Meaning |
@@ -124,6 +189,9 @@ nothing changes.
 | `translate` | `"auto"` | `auto` / `true` / `false` |
 | `path_map` | `{"X:\\": "/mnt/x/"}` | host prefix -> VM prefix, see below |
 | `doctor` | `powershell ... Test-DevSuite.ps1` | command printed when the engine is unreachable |
+| `copy` | `"auto"` | copy mode (section 4a): `auto` = on when translation is on; `true` / `false` force |
+| `copy_image` | `"mcr.microsoft.com/dotnet/aspnet:10.0"` | local image (with `sh`) used to seed the volumes |
+| `copy_cli` | `"docker"` | container CLI the seed scripts call (`podman` works too) |
 
 `path_map` rules:
 
@@ -169,7 +237,8 @@ most of these anyway.
 ```bash
 devsuite/podman/tests/run.sh          # podman.star fixtures (tilt alpha tiltfile-result)
 devsuite/podman/tests/e2e/run.sh      # tilt ci: faked Podman probe, path_map ./host -> ./vm,
-                                      # container only stays up if it sees vm/marker
+                                      # container only stays up if it sees vm/marker;
+                                      # copy=true: `copied` runs a script and flocks it from a seeded volume
 pwsh -File devsuite/podman/tests/PathMap.Tests.ps1   # PowerShell mapping == Starlark mapping
 pwsh -File devsuite/podman/tests/Lint.ps1            # parse all scripts (+ PSScriptAnalyzer if installed)
 ```
@@ -189,6 +258,12 @@ Run these once on Windows and fix forward:
    round trip uses `docker run`, not compose, so the first `tilt up` is the check).
 4. `tilt up` on Windows: preflight via `cmd.exe` (`... 2>&1 || echo ...`) and
    `os.name == "nt"` turning translation on.
+6. Copy mode on Windows: `seed-volume.ps1` (`docker cp C:\...\. <ctr>:/dst`
+   through the Podman API, exec bit set by the Windows client) and vsdbg
+   starting from the seeded volume. Verified on Linux only: the sample with a
+   synthetic vsdbg drop and `copy: true` runs `/remote_debugger/vsdbg` from the
+   volume, all mounts read-only volumes. On Linux `docker cp` keeps the host
+   mode instead of adding the exec bit.
 5. PSScriptAnalyzer: not reachable from the bench (PowerShell Gallery blocked);
    scripts were only parsed and the doctor run under pwsh on Linux against
    Docker. Run `Install-Module PSScriptAnalyzer; .\devsuite\podman\tests\Lint.ps1`.
